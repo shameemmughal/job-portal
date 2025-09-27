@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Latest Jobs Update</title>
+  <!-- 🔥 Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+    body { background: #f8fafc; color: #334155; line-height: 1.6; }
+    header {
+      background: linear-gradient(135deg, #1e40af, #2563eb);
+      color: white;
+      padding: 16px 20px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 0 20px;
+    }
+    .job-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+    .job-card {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      cursor: pointer;
+    }
+    .job-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .job-img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+    }
+    .job-content {
+      padding: 16px;
+      background: white;
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 16px;
+    }
+    .job-title {
+      font-weight: 800;
+      font-size: 1.1rem;
+      color: #1e293b;
+      margin-bottom: 8px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .job-company {
+      font-size: 0.9rem;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+    .job-salary {
+      display: inline-block;
+      background: #dbeafe;
+      color: #1d4ed8;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-right: 8px;
+    }
+    .job-type {
+      display: inline-block;
+      background: #fef3c7;
+      color: #d97706;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .apply-btn {
+      display: block;
+      width: 100%;
+      background: #2563eb;
+      color: white;
+      text-align: center;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-top: 12px;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .apply-btn:hover {
+      background: #1d4ed8;
+    }
+    .no-jobs {
+      text-align: center;
+      padding: 40px;
+      color: #94a3b8;
+      font-size: 1.1rem;
+    }
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #64748b;
+    }
+
+    /* Job Preview Page Styles */
+    .preview-page {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      z-index: 1000;
+      overflow-y: auto;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .preview-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #e2e8f0;
+    }
+    .preview-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #1e293b;
+    }
+    .close-preview {
+      background: #6b7280;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .preview-img {
+      width: 100%;
+      height: 300px;
+      object-fit: cover;
+      border-radius: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+    .preview-meta {
+      margin-bottom: 20px;
+      line-height: 1.8;
+    }
+    .meta-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .meta-label {
+      font-weight: 700;
+      color: #1e40af;
+      min-width: 80px;
+    }
+    .meta-value {
+      font-size: 1rem;
+      color: #334155;
+    }
+    .preview-desc {
+      margin: 20px 0;
+      font-size: 1rem;
+      line-height: 1.6;
+      color: #334155;
+    }
+    .preview-apply-btn {
+      display: block;
+      width: 100%;
+      max-width: 200px;
+      margin: 20px auto;
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      color: white;
+      text-align: center;
+      padding: 12px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 1rem;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .preview-apply-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+    }
+    .back-link {
+      display: inline-block;
+      margin-top: 20px;
+      color: #1e40af;
+      text-decoration: underline;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📢 Latest Jobs Update</h1>
+  </header>
+
+  <div class="container">
+    <div id="jobsContainer">
+      <div class="loading">Loading jobs...</div>
+    </div>
+  </div>
+
+  <!-- Job Preview Modal -->
+  <div id="previewPage" class="preview-page">
+    <div class="preview-header">
+      <div class="preview-title" id="previewTitle">Job Title</div>
+      <button class="close-preview" onclick="closePreview()">Close</button>
+    </div>
+    <img id="previewImg" class="preview-img" src="" alt="Job Image" />
+    <div class="preview-meta">
+      <div class="meta-row">
+        <span class="meta-label">Company:</span>
+        <span class="meta-value" id="previewCompany">Company</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Location:</span>
+        <span class="meta-value" id="previewLocation">Location</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Salary:</span>
+        <span class="meta-value" id="previewSalary">PKR 80,000</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Type:</span>
+        <span class="meta-value" id="previewType">Full-time</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-label">Deadline:</span>
+        <span class="meta-value" id="previewDeadline">02/10/2025</span>
+      </div>
+    </div>
+    <div class="preview-desc" id="previewDescription">
+      Job description will appear here...
+    </div>
+    <a id="applyLink" class="preview-apply-btn" target="_blank">Apply Now</a>
+    <br><br>
+    <a href="#" class="back-link" onclick="closePreview(); return false;">← Back to Jobs</a>
+  </div>
+
+  <script>
+    // 🔥 Firebase Config (Same as admin)
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGxTd2aBnavPMuHIZSabmMMbfkwFfoFPk",
+      authDomain: "job-portal-68f04.firebaseapp.com",
+      projectId: "job-portal-68f04",
+      storageBucket: "job-portal-68f04.firebasestorage.app",
+      messagingSenderId: "704411049515",
+      appId: "1:704411049515:web:a264941ebd0f84c5df146e"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const jobsContainer = document.getElementById('jobsContainer');
+    const previewPage = document.getElementById('previewPage');
+
+    // Load jobs
+    db.collection('jobs')
+      .orderBy('postedAt', 'desc')
+      .onSnapshot(snapshot => {
+        if (snapshot.empty) {
+          jobsContainer.innerHTML = '<div class="no-jobs">No jobs available right now.</div>';
+          return;
+        }
+
+        let html = '';
+        snapshot.forEach(doc => {
+          const job = doc.data();
+          const deadline = job.deadline.toDate().toLocaleDateString('en-GB');
+          const img = job.imageUrl 
+            ? `<img src="${job.imageUrl}" alt="${job.title}" class="job-img">`
+            : `<div class="job-img" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e40af,#2563eb);color:white;font-size:1.5rem">No Image</div>`;
+
+          html += `
+            <div class="job-card" onclick="showPreview('${doc.id}')">
+              ${img}
+              <div class="job-content">
+                <div class="job-title">${job.title}</div>
+                <div class="job-company">${job.company}</div>
+                <div class="job-meta">
+                  <span class="job-salary">${job.salary}</span>
+                  <span class="job-type">${job.type}</span>
+                </div>
+                <a href="#" class="apply-btn" onclick="event.stopPropagation(); showPreview('${doc.id}');">Apply Now</a>
+              </div>
+            </div>
+          `;
+        });
+        jobsContainer.innerHTML = html;
+      }, err => {
+        jobsContainer.innerHTML = `<div class="no-jobs">Error loading jobs: ${err.message}</div>`;
+      });
+
+    // Show job preview
+    async function showPreview(jobId) {
+      try {
+        const doc = await db.collection('jobs').doc(jobId).get();
+        if (!doc.exists) {
+          alert("Job not found!");
+          return;
+        }
+
+        const job = doc.data();
+        const deadline = job.deadline.toDate().toLocaleDateString('en-GB');
+
+        document.getElementById('previewTitle').textContent = job.title;
+        document.getElementById('previewCompany').textContent = job.company;
+        document.getElementById('previewLocation').textContent = job.location;
+        document.getElementById('previewSalary').textContent = job.salary;
+        document.getElementById('previewType').textContent = job.type;
+        document.getElementById('previewDeadline').textContent = deadline;
+        document.getElementById('previewDescription').textContent = job.description;
+        document.getElementById('previewImg').src = job.imageUrl || 'https://via.placeholder.com/800x400?text=No+Image';
+        document.getElementById('applyLink').href = job.applyUrl || '#';
+        document.getElementById('applyLink').textContent = job.applyUrl ? 'Apply Now' : 'Apply Link Not Available';
+
+        previewPage.style.display = 'block';
+        window.scrollTo(0, 0); // Scroll to top
+      } catch (err) {
+        alert("Error loading job details: " + err.message);
+        console.error(err);
+      }
+    }
+
+    // Close preview
+    function closePreview() {
+      previewPage.style.display = 'none';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Dashboard - Job Portal</title>
+  <!-- 🔥 Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+    body { background: #f5f7ff; padding: 20px; color: #334155; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 30px; }
+    header h1 { color: #2563eb; font-size: 2.2rem; }
+    .panels { display: grid; grid-template-columns: 1fr; gap: 30px; }
+    @media (min-width: 992px) {
+      .panels { grid-template-columns: 1fr 1fr; }
+    }
+    .panel { background: white; padding: 25px; border-radius: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    .panel h2 { margin-bottom: 20px; color: #1e40af; font-size: 1.4rem; }
+    .form-group { margin-bottom: 16px; }
+    label { display: block; margin-bottom: 6px; font-weight: 600; }
+    input, textarea, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; }
+    button { width: 100%; padding: 12px; background: #2563eb; color: white; border: none; border-radius: 8px; font-size: 17px; cursor: pointer; margin-top: 10px; }
+    button:hover { background: #1d4ed8; }
+    #status { margin-top: 20px; padding: 12px; text-align: center; border-radius: 8px; }
+    .success { background: #d1fae5; color: #065f46; }
+    .error { background: #fee2e2; color: #b91c1c; }
+
+    /* Jobs List Styling */
+    .job-item {
+      border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 16px;
+      display: flex; gap: 16px;
+      position: relative;
+    }
+    .job-img {
+      width: 80px; height: 80px; border-radius: 8px; object-fit: cover; background: #f1f5f9;
+    }
+    .job-info { flex: 1; }
+    .job-title { font-weight: 700; font-size: 1.1rem; color: #1e293b; }
+    .job-meta { font-size: 0.9rem; color: #64748b; margin: 4px 0; }
+    .job-desc { margin: 8px 0; font-size: 0.95rem; color: #475569; }
+    .job-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .apply-btn {
+      background: #0ea5e9; color: white; border: none; padding: 6px 12px;
+      border-radius: 6px; cursor: pointer; font-size: 0.9rem;
+    }
+    .apply-btn:hover { background: #0284c7; }
+    .edit-btn {
+      background: #f59e0b; color: white; border: none; padding: 6px 12px;
+      border-radius: 6px; cursor: pointer; font-size: 0.9rem;
+    }
+    .edit-btn:hover { background: #d97706; }
+    .delete-btn {
+      background: #dc2626; color: white; border: none; padding: 6px 12px;
+      border-radius: 6px; cursor: pointer; font-size: 0.9rem;
+    }
+    .delete-btn:hover { background: #b91c1c; }
+    .no-jobs { text-align: center; padding: 20px; color: #94a3b8; }
+
+    /* Edit Form Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+      background: white;
+      margin: 15% auto;
+      padding: 25px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .close-btn {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .close-btn:hover { color: black; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🛠️ Admin Dashboard</h1>
+      <p>Manage jobs with edit/delete and apply link support</p>
+    </header>
+
+    <div class="panels">
+      <!-- Left Panel: Add/Edit Job Form -->
+      <div class="panel">
+        <h2 id="formTitle">➕ Add New Job</h2>
+        <form id="jobForm">
+          <input type="hidden" id="jobId" value="" />
+          <div class="form-group">
+            <label>Job Title</label>
+            <input type="text" id="title" required placeholder="e.g. Frontend Developer" />
+          </div>
+          <div class="form-group">
+            <label>Company</label>
+            <input type="text" id="company" required placeholder="e.g. Tech Corp" />
+          </div>
+          <div class="form-group">
+            <label>Location</label>
+            <input type="text" id="location" required placeholder="e.g. Lahore, Pakistan" />
+          </div>
+          <div class="form-group">
+            <label>Salary (Optional)</label>
+            <input type="text" id="salary" placeholder="e.g. PKR 80,000" />
+          </div>
+          <div class="form-group">
+            <label>Job Type</label>
+            <select id="type" required>
+              <option value="Full-time">Full-time</option>
+              <option value="Part-time">Part-time</option>
+              <option value="Internship">Internship</option>
+              <option value="Contract">Contract</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Featured Image URL (Optional)</label>
+            <input type="url" id="imageUrl" placeholder="https://example.com/logo.png" />
+          </div>
+          <div class="form-group">
+            <label>Apply Now Link (Optional)</label>
+            <input type="url" id="applyUrl" placeholder="https://apply.example.com/job123" />
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea id="description" rows="3" required placeholder="Job responsibilities..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Deadline (YYYY-MM-DD)</label>
+            <input type="date" id="deadline" required />
+          </div>
+          <button type="submit" id="submitBtn">Publish Job</button>
+          <button type="button" id="cancelBtn" style="display:none; background:#6b7280;">Cancel</button>
+        </form>
+        <div id="status"></div>
+      </div>
+
+      <!-- Right Panel: Published Jobs -->
+      <div class="panel">
+        <h2>📋 Published Jobs</h2>
+        <div id="jobsList">
+          <p>Loading jobs...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeModal()">&times;</span>
+      <h3>Edit Job</h3>
+      <form id="editForm">
+        <input type="hidden" id="editJobId" />
+        <div class="form-group">
+          <label>Job Title</label>
+          <input type="text" id="editTitle" required />
+        </div>
+        <div class="form-group">
+          <label>Company</label>
+          <input type="text" id="editCompany" required />
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <input type="text" id="editLocation" required />
+        </div>
+        <div class="form-group">
+          <label>Salary</label>
+          <input type="text" id="editSalary" />
+        </div>
+        <div class="form-group">
+          <label>Job Type</label>
+          <select id="editType" required>
+            <option value="Full-time">Full-time</option>
+            <option value="Part-time">Part-time</option>
+            <option value="Internship">Internship</option>
+            <option value="Contract">Contract</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Image URL</label>
+          <input type="url" id="editImageUrl" />
+        </div>
+        <div class="form-group">
+          <label>Apply Link</label>
+          <input type="url" id="editApplyUrl" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="editDescription" rows="3" required></textarea>
+        </div>
+        <div class="form-group">
+          <label>Deadline</label>
+          <input type="date" id="editDeadline" required />
+        </div>
+        <button type="submit">Update Job</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // 🔥 Your Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGxTd2aBnavPMuHIZSabmMMbfkwFfoFPk",
+      authDomain: "job-portal-68f04.firebaseapp.com",
+      projectId: "job-portal-68f04",
+      storageBucket: "job-portal-68f04.firebasestorage.app",
+      messagingSenderId: "704411049515",
+      appId: "1:704411049515:web:a264941ebd0f84c5df146e"
+    };
+
+    // Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // === GLOBAL VARIABLES ===
+    let editingJobId = null;
+
+    // === ADD/UPDATE JOB ===
+    document.getElementById('jobForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const status = document.getElementById('status');
+      status.textContent = editingJobId ? "Updating job..." : "Publishing...";
+      status.className = "";
+
+      try {
+        const jobData = {
+          title: document.getElementById('title').value,
+          company: document.getElementById('company').value,
+          location: document.getElementById('location').value,
+          salary: document.getElementById('salary').value || 'Not disclosed',
+          type: document.getElementById('type').value,
+          imageUrl: document.getElementById('imageUrl').value || '',
+          applyUrl: document.getElementById('applyUrl').value || '#',
+          description: document.getElementById('description').value,
+          deadline: new Date(document.getElementById('deadline').value),
+          postedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        if (editingJobId) {
+          await db.collection('jobs').doc(editingJobId).update(jobData);
+          status.textContent = "✅ Job updated!";
+          document.getElementById('formTitle').textContent = "➕ Add New Job";
+          document.getElementById('cancelBtn').style.display = 'none';
+          document.getElementById('submitBtn').textContent = "Publish Job";
+        } else {
+          await db.collection('jobs').add(jobData);
+          status.textContent = "✅ Job published!";
+        }
+
+        status.className = "success";
+        document.getElementById('jobForm').reset();
+        document.getElementById('jobId').value = '';
+        editingJobId = null;
+        loadJobs(); // Refresh list
+      } catch (err) {
+        status.textContent = "❌ " + err.message;
+        status.className = "error";
+        console.error(err);
+      }
+    });
+
+    // === CANCEL EDIT ===
+    document.getElementById('cancelBtn').addEventListener('click', () => {
+      document.getElementById('jobForm').reset();
+      document.getElementById('jobId').value = '';
+      document.getElementById('formTitle').textContent = "➕ Add New Job";
+      document.getElementById('cancelBtn').style.display = 'none';
+      document.getElementById('submitBtn').textContent = "Publish Job";
+      editingJobId = null;
+    });
+
+    // === LOAD JOBS ===
+    async function loadJobs() {
+      const jobsList = document.getElementById('jobsList');
+      try {
+        const snapshot = await db.collection('jobs').orderBy('postedAt', 'desc').get();
+        if (snapshot.empty) {
+          jobsList.innerHTML = '<p class="no-jobs">No jobs published yet.</p>';
+          return;
+        }
+
+        let html = '';
+        snapshot.forEach(doc => {
+          const job = doc.data();
+          const deadline = job.deadline.toDate().toLocaleDateString('en-GB');
+          const img = job.imageUrl 
+            ? `<img src="${job.imageUrl}" alt="Company" class="job-img">`
+            : `<div class="job-img" style="display:flex;align-items:center;justify-content:center;color:#94a3b8">No Image</div>`;
+
+          html += `
+            <div class="job-item">
+              ${img}
+              <div class="job-info">
+                <div class="job-title">${job.title}</div>
+                <div class="job-meta">${job.company} • ${job.location}</div>
+                <div class="job-meta">💰 ${job.salary} • 🕒 ${job.type}</div>
+                <div class="job-desc">${job.description.substring(0, 80)}${job.description.length > 80 ? '...' : ''}</div>
+                <div class="job-meta">📅 Deadline: ${deadline}</div>
+                <div class="job-actions">
+                  <a href="${job.applyUrl}" target="_blank" class="apply-btn">Apply Now</a>
+                  <button class="edit-btn" onclick="editJob('${doc.id}', '${job.title}', '${job.company}', '${job.location}', '${job.salary}', '${job.type}', '${job.imageUrl}', '${job.applyUrl}', '${job.description}', '${job.deadline.toDate().toISOString().split('T')[0]}')">Edit</button>
+                  <button class="delete-btn" onclick="deleteJob('${doc.id}')">Delete</button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        jobsList.innerHTML = html;
+      } catch (err) {
+        jobsList.innerHTML = `<p class="error">Failed to load jobs: ${err.message}</p>`;
+        console.error(err);
+      }
+    }
+
+    // === EDIT JOB ===
+    function editJob(id, title, company, location, salary, type, imageUrl, applyUrl, description, deadline) {
+      editingJobId = id;
+      document.getElementById('jobId').value = id;
+      document.getElementById('title').value = title;
+      document.getElementById('company').value = company;
+      document.getElementById('location').value = location;
+      document.getElementById('salary').value = salary;
+      document.getElementById('type').value = type;
+      document.getElementById('imageUrl').value = imageUrl;
+      document.getElementById('applyUrl').value = applyUrl;
+      document.getElementById('description').value = description;
+      document.getElementById('deadline').value = deadline;
+
+      document.getElementById('formTitle').textContent = "✏️ Edit Job";
+      document.getElementById('cancelBtn').style.display = 'block';
+      document.getElementById('submitBtn').textContent = "Update Job";
+
+      // Scroll to form
+      document.querySelector('.panel:first-child').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // === DELETE JOB ===
+    async function deleteJob(id) {
+      if (!confirm("Are you sure you want to delete this job?")) return;
+
+      try {
+        await db.collection('jobs').doc(id).delete();
+        alert("Job deleted successfully!");
+        loadJobs(); // Refresh list
+      } catch (err) {
+        alert("Error deleting job: " + err.message);
+        console.error(err);
+      }
+    }
+
+    // === MODAL FUNCTIONS ===
+    function openModal() {
+      document.getElementById('editModal').style.display = 'block';
+    }
+
+    function closeModal() {
+      document.getElementById('editModal').style.display = 'none';
+    }
+
+    // Load jobs on page load
+    loadJobs();
+  </script>
+</body>
+</html>
